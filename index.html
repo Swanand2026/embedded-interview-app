@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Embedded Interview Pro</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#007bff">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+    font-family: system-ui, Arial;
+    background: #eef2f7;
+    padding: 15px;
+}
+.container {
+    max-width: 520px;
+    margin: auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 12px;
+}
+h1 { text-align: center; }
+select, button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+}
+button {
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+}
+.output {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f4f4f4;
+    border-radius: 8px;
+}
+.timer { text-align: right; font-weight: bold; }
+</style>
+</head>
+
+<body>
+<div class="container">
+<h1>🎙️ Embedded Interview Pro</h1>
+
+<select id="topic">
+<option>C</option>
+<option>Embedded C</option>
+<option>CAN</option>
+<option>UDS</option>
+<option>I2C</option>
+<option>SPI</option>
+<option>HR</option>
+</select>
+
+<select id="difficulty">
+<option>Easy</option>
+<option>Medium</option>
+<option>Hard</option>
+</select>
+
+<button onclick="askQuestion()">Ask Question</button>
+<button onclick="startAnswer()">Answer (Speak)</button>
+<button onclick="exportCSV()">Export Excel</button>
+
+<div class="timer" id="timer">⏱️ 60</div>
+
+<div class="output" id="questionBox"></div>
+<div class="output" id="answerBox"></div>
+<div class="output" id="feedbackBox"></div>
+
+<canvas id="progressChart"></canvas>
+</div>
+
+<script>
+const DB={
+"C":{Easy:[{q:"What is pointer?",k:["address","memory"]}],
+Medium:[{q:"malloc vs calloc?",k:["heap","initial"]}],
+Hard:[{q:"Memory leak?",k:["free","heap"]}]},
+"Embedded C":{Easy:[{q:"What is volatile?",k:["compiler"]}],
+Medium:[{q:"ISR?",k:["interrupt"]}],
+Hard:[{q:"Race condition?",k:["shared"]}]},
+"CAN":{Easy:[{q:"What is CAN?",k:["automotive"]}],
+Medium:[{q:"CAN arbitration?",k:["priority"]}],
+Hard:[{q:"Bus off?",k:["error"]}]},
+"UDS":{Easy:[{q:"What is UDS?",k:["diagnostic"]}],
+Medium:[{q:"Session control?",k:["default"]}],
+Hard:[{q:"Security access?",k:["seed"]}]},
+"I2C":{Easy:[{q:"I2C lines?",k:["sda","scl"]}],
+Medium:[{q:"ACK?",k:["ack"]}],
+Hard:[{q:"Clock stretching?",k:["slave"]}]},
+"SPI":{Easy:[{q:"SPI signals?",k:["mosi","miso"]}],
+Medium:[{q:"SPI modes?",k:["cpol"]}],
+Hard:[{q:"Multi slave issue?",k:["cs"]}]},
+"HR":{Easy:[{q:"Introduce yourself",k:["experience"]}],
+Medium:[{q:"Why embedded?",k:["interest"]}],
+Hard:[{q:"Failure?",k:["learn"]}]}
+};
+
+let history=JSON.parse(localStorage.getItem("data"))||[];
+let current=null,time=60,interval;
+
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const rec=new SR();
+rec.lang="en-US";
+
+function speak(t){speechSynthesis.speak(new SpeechSynthesisUtterance(t));}
+
+function askQuestion(){
+let t=topic.value,d=difficulty.value;
+current=DB[t][d][0];
+questionBox.innerHTML="<b>Q:</b> "+current.q;
+speak(current.q);
+startTimer();
+}
+
+function startTimer(){
+clearInterval(interval);time=60;
+interval=setInterval(()=>{timer.innerText="⏱️ "+(--time);
+if(time<=0)clearInterval(interval);},1000);
+}
+
+function startAnswer(){rec.start();}
+
+rec.onresult=e=>{
+let ans=e.results[0][0].transcript.toLowerCase();
+answerBox.innerHTML="<b>Your Answer:</b> "+ans;
+evaluate(ans);
+};
+
+function evaluate(ans){
+let score=0;
+current.k.forEach(k=>{if(ans.includes(k))score++;});
+let marks=Math.round(score/current.k.length*10);
+feedbackBox.innerHTML="<b>Score:</b> "+marks+"/10";
+history.push({q:current.q,a:ans,s:marks});
+localStorage.setItem("data",JSON.stringify(history));
+drawChart();
+}
+
+function exportCSV(){
+let csv="Question,Answer,Score\n";
+history.forEach(h=>csv+=`"${h.q}","${h.a}",${h.s}\n`);
+let a=document.createElement("a");
+a.href=URL.createObjectURL(new Blob([csv]));
+a.download="interview.csv";a.click();
+}
+
+function drawChart(){
+new Chart(progressChart,{type:"line",
+data:{labels:history.map((_,i)=>i+1),
+datasets:[{label:"Score",data:history.map(h=>h.s)}]}});
+}
+
+if("serviceWorker"in navigator)
+navigator.serviceWorker.register("service-worker.js");
+</script>
+</body>
+</html>
